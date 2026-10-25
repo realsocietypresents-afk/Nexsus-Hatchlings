@@ -1,0 +1,291 @@
+# NexusHatchlings configuration
+#
+# Throw a Hatchling Crystal at any mob and it shrinks down to a tiny hatchling AND becomes tamed to
+# you in the same instant -- the same "throw it, the mob picks it up" mechanic NexusWarbeasts'
+# Truce Crystal uses, just for taming instead of pacifying. From there it grows up over real
+# elapsed time (the same Attribute.GENERIC_SCALE growth curve NexusGrowth already gives players) until it
+# reaches full size -- or bigger, if you raise max-scale below -- staying tamed to you the whole
+# way, wherever it wanders and however many restarts happen in between.
+
+settings:
+  enabled: true
+
+  # How tiny a mob becomes the instant it's tamed -- a fraction of its normal size. 0.12 reads as a
+  # genuine "hatchling," barely visible next to its full-grown self.
+  start-scale: 0.12
+
+  # The size a tamed hatchling grows up to once fully matured. 1.0 = its normal vanilla size;
+  # raise this (e.g. 1.3) if you want a grown, loyal hatchling to end up bigger than a wild one of
+  # the same type -- same "grows into a status symbol" idea NexusGrowth uses for players.
+  max-scale: 1.0
+
+  # Real days (wall-clock, not playtime -- same model as NexusGrowth) from the moment of taming
+  # until a hatchling reaches max-scale. Deliberately much shorter than NexusGrowth's 20-year player
+  # climb -- a pet growing up should resolve on a timescale you'll actually see play out.
+  days-to-grow: 14.0
+
+  # How often (real minutes) every currently-loaded tamed hatchling has its size recalculated and
+  # (if follow-owner is on) takes a step toward its owner.
+  reapply-interval-minutes: 5
+
+  # While still growing, a tamed hatchling can't take damage from anything except falling into the
+  # void -- so a stray creeper or an unlucky fall doesn't undo days of growth before it's had a
+  # chance to become the real, full-sized creature it'll eventually be. Damage immunity ends the
+  # moment it finishes growing; a fully-grown tamed hatchling (baby dragon included) is a real,
+  # fightable/killable creature again, not permanently invincible.
+  invulnerable-while-growing: true
+
+  # A tamed hatchling tries to stay near its owner -- if it wanders past follow-radius-blocks, it
+  # paths toward the owner (org.bukkit.entity.Mob#getPathfinder, real pathfinding, not a teleport);
+  # if it somehow ends up farther than teleport-to-owner-distance-blocks (fell through the world
+  # generation into a cave system, got separated across a loaded/unloaded chunk boundary, etc.), it
+  # teleports directly to the owner instead, the same safety-net vanilla tamed wolves use.
+  follow-owner: true
+  follow-radius-blocks: 6
+  follow-speed: 1.0
+  teleport-to-owner-distance-blocks: 32
+
+  # Automatically sends the same overview /nexushatchlings prints (how taming, growth, and traits
+  # work) to a player the very first time they join with this plugin installed -- once ever per
+  # player, tracked in plugins/NexusHatchlings/seen.log. Same pattern as NexusWards/NexusForge.
+  first-join-message: true
+
+# The crystal itself, from throw to taming. Thrown as a tagged snowball. A crystal that hits a mob
+# head-on tames THAT mob at once (any mob, an Enderman included). A crystal that lands on a block
+# leaves a marked item there, and a background task tames the NEAREST untamed mob that comes close.
+# A direct hit on a mob that can't be tamed (already someone's, or listed under excluded-mob-types)
+# tells the thrower why and gives the crystal back.
+crystal:
+  # How often (real seconds) the background task looks around every crystal still waiting on the
+  # ground for an eligible mob nearby to tame.
+  scan-interval-seconds: 3
+
+  # How close (blocks) an eligible mob has to be to a waiting crystal to be tamed by it.
+  pickup-radius-blocks: 3
+
+  # If no eligible mob ever wanders this close (real seconds), the crystal gives up and vanishes
+  # instead of waiting on the ground forever.
+  expiry-seconds: 120
+
+# Mob types the crystal refuses to tame -- empty by default. Notably, unlike NexusWarbeasts (which
+# excludes Ender Dragon/Wither/Warden from its neutralize-crystal by default for balance reasons),
+# NOTHING is excluded here by default -- baby dragons and baby wardens were explicitly asked for.
+# A tamed Ender Dragon that eventually grows to full size is a genuinely powerful pet; add entries
+# here (e.g. "ENDER_DRAGON", "WITHER") if that turns out to be more than you want.
+excluded-mob-types: []
+
+# A tamed Enderman stays where it is instead of teleporting away on its own (it does still come to
+# its owner when the owner gets too far away) and does not pick up or put down blocks.
+endermen:
+  stay-put: true
+
+# Other plugins (protection, farming, claims) sometimes refuse a click on an animal that carries
+# plugin data. With this on, the OWNER of a tamed animal can always use a bucket (milk), bowl
+# (mushroom stew) or shears on it: this plugin un-cancels that one click if something else cancelled it.
+# It never affects anyone but the owner, and never dragons.
+owner-interactions:
+  milk-and-shear: true
+
+milestones:
+  enabled: true
+  announce-percentages: [25, 50, 75, 100]
+
+# An optional shapeless crafting recipe for the Hatchling Crystal, as an alternative to
+# /nexushatchlings give. Set to false to make it give-only.
+recipe:
+  enabled: true
+
+# Special attributes: every new hatchling rolls count-min..count-max traits (weighted by
+# rarity-weight -- higher rolls more often -- never the same trait twice on one hatchling) at the
+# exact moment it's tamed, announced right alongside the taming message. Never re-rolled after that.
+#
+# Three kinds, see `traits:` below:
+#   STAT     -- scales one real Attribute (attribute/multiplier) up, phased in with growth progress
+#               exactly like size already is: no bonus the moment it's tamed, the full multiplier
+#               once fully grown.
+#   ABILITY  -- grants one of a fixed set of real coded behaviors (ability: FIRE_IMMUNE,
+#               REGENERATIVE, SWIFT, or KEEN_EYED). Unlike STAT/COSMETIC, config picks *which* of
+#               these a trait grants -- it can't invent a new kind of ability from scratch.
+#   COSMETIC -- a colored prefix (prefix) baked into the hatchling's display name. No mechanical
+#               effect at all.
+#
+# A malformed entry (unknown kind/attribute/ability, missing id/display-name) is skipped
+# individually with a logged warning -- never fatal to the rest of the list.
+traits:
+  enabled: true
+  count-min: 1
+  count-max: 2
+
+  # The list of traits a hatchling can roll. (Before 1.4.0 this list sat directly under "traits:" next to the numbers above,
+  # which is not valid YAML: the server could not read this file at all and ran on built-in defaults.)
+  definitions:
+  - id: vigorous
+    display-name: "Vigorous"
+    description: "Grows into noticeably more health than a normal one of its kind."
+    kind: STAT
+    rarity-weight: 40
+    attribute: GENERIC_MAX_HEALTH
+    multiplier: 1.5
+  - id: titanic_heart
+    display-name: "Titanic Heart"
+    description: "A truly massive health pool once fully grown."
+    kind: STAT
+    rarity-weight: 8
+    attribute: GENERIC_MAX_HEALTH
+    multiplier: 2.0
+  - id: fleet_footed
+    display-name: "Fleet-Footed"
+    description: "Grows into noticeably faster movement than a normal one of its kind."
+    kind: STAT
+    rarity-weight: 40
+    attribute: GENERIC_MOVEMENT_SPEED
+    multiplier: 1.3
+  - id: ferocious
+    display-name: "Ferocious"
+    description: "Grows into noticeably harder-hitting attacks than a normal one of its kind."
+    kind: STAT
+    rarity-weight: 30
+    attribute: GENERIC_ATTACK_DAMAGE
+    multiplier: 1.5
+
+  - id: undying_ember
+    display-name: "Undying Ember"
+    description: "Completely immune to fire and lava."
+    kind: ABILITY
+    rarity-weight: 15
+    ability: FIRE_IMMUNE
+  - id: regenerative
+    display-name: "Regenerative"
+    description: "A steady trickle of real vanilla Regeneration."
+    kind: ABILITY
+    rarity-weight: 20
+    ability: REGENERATIVE
+  - id: swift
+    display-name: "Swift"
+    description: "A steady trickle of real vanilla Speed."
+    kind: ABILITY
+    rarity-weight: 25
+    ability: SWIFT
+  - id: keen_eyed
+    display-name: "Keen-Eyed"
+    description: "A steady trickle of real vanilla Night Vision."
+    kind: ABILITY
+    rarity-weight: 25
+    ability: KEEN_EYED
+
+  - id: radiant
+    display-name: "Radiant"
+    description: "A gleaming, gold-lettered name."
+    kind: COSMETIC
+    rarity-weight: 20
+    prefix: "§e✦ Radiant§r"
+  - id: shadowed
+    display-name: "Shadowed"
+    description: "A dark, muted name."
+    kind: COSMETIC
+    rarity-weight: 20
+    prefix: "§8✦ Shadowed§r"
+  - id: ancient
+    display-name: "Ancient"
+    description: "A rare, weathered-looking name -- as if it's older than it should be."
+    kind: COSMETIC
+    rarity-weight: 6
+    prefix: "§6✦ Ancient§r"
+
+# ---------------------------------------------------------------------------------------------
+# Dragons (added in 1.4.0)
+#
+# Put a Dragon Egg on a lit campfire (or soul campfire; fire right above the egg also works but burns out on its own) and keep it
+# lit. After hatch-minutes of warmth the egg hatches a wild baby Ender Dragon. Throw a Hatchling Crystal at the baby to tame it;
+# from then on it grows like any hatchling (settings.days-to-grow). Growth decides what it can do:
+#   below fly-at-percent        it only walks, and follows you on the ground
+#   fly-at-percent and above    it flies after you, and you can ride it (right-click it)
+#   adult-at-percent and above  it also fights: /dragon <its word> [player|all]
+# A dragon is a real Ender Dragon with its own AI switched off; the plugin moves it in small hops every interval-ticks.
+# Colours (16, one per dye): right-click a dragon with a dye. The colour shows as the glowing outline, the name tag and a dust
+# aura, because a vanilla dragon's skin cannot be changed without a resource pack.
+# Every number here is clamped to a sane range on load and the console says when one was moved.
+# ---------------------------------------------------------------------------------------------
+dragons:
+  enabled: true
+
+  egg:
+    hatch-minutes: 15
+    check-seconds: 5
+
+  stages:
+    fly-at-percent: 50
+    adult-at-percent: 100
+
+  movement:
+    interval-ticks: 2
+    walk-speed: 3
+    follow-fly-speed: 10
+    descend-speed: 6
+    wild-wander: true
+    wander-radius: 6
+    # The dragon model faces away from its yaw; if yours faces backwards while you fly, change this to 0.
+    yaw-offset: 180
+
+  ride:
+    enabled: true
+    owner-only: true
+    speed: 14
+    # How many blocks above its centre must be open air for it to move forward (it stops at walls).
+    clearance-blocks: 3
+    slow-fall-seconds: 6
+
+  look:
+    # Used only when model.enabled is false: the real Ender Dragon gets a coloured glowing outline.
+    glow: true
+    aura: true
+    aura-interval-ticks: 10
+    # Draw each dragon from blocks in its own colour (concrete body, terracotta belly and tail tip, glass wings, glowing eyes)
+    # and hide the real dragon, which still supplies the hitbox, the movement and the name tag. Java players see the blocks.
+    # Bedrock players do not get these block displays through Geyser: they see only the name tag and the coloured dust.
+    # Set enabled to false to go back to the real dragon with a coloured outline (do this before removing the plugin, or
+    # the hidden dragons stay invisible).
+    model:
+      enabled: true
+      # 1.0 is the normal proportion; a dragon is drawn this much bigger or smaller than its growth says.
+      size: 1.0
+      # How often (ticks) the body is redrawn when it turns or its wings move. Lower is smoother but costs more.
+      update-ticks: 4
+      # How far away the blocks are drawn, 1.0 being the normal entity distance.
+      view-range: 1.5
+
+  limit:
+    # The most dragons one player can keep, counting ones asleep in unloaded chunks. A crystal thrown at one more
+    # comes back to its thrower. Players with the nexushatchlings.dragons.unlimited permission ignore it.
+    max-per-player: 10
+    # A dragon that has not been seen for this many days (and is not known to have died or been released) stops counting.
+    forget-after-days: 30
+
+  formation:
+    # Dragons following the same owner stand spread out around them instead of piling up in one spot.
+    enabled: true
+    # The least distance, in blocks, between two following dragons.
+    spacing: 6
+    # The ring around the owner is never tighter than this.
+    min-radius: 4
+    # How far a dragon may be from its own place before it moves.
+    tolerance: 2
+
+  attack:
+    enabled: true
+    # How far away from you the dragon can still hear its word.
+    command-range: 200
+    # How far from the dragon a player can be and still be picked as a target.
+    target-range: 64
+    # How close it must be to breathe fire on someone.
+    strike-range: 22
+    speed: 14
+    hover-height: 6
+    damage: 8
+    interval-ticks: 30
+    fire-seconds: 5
+    duration-seconds: 45
+
+  allies:
+    # With NexusHouses installed, players of your house or of houses that stand with yours are never attacked.
+    use-nexushouses: true
